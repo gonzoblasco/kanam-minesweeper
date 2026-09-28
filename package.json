@@ -1,0 +1,20 @@
+{
+  "name": "kanam-minesweeper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Buscaminas clasico en el navegador (vanilla JS + PWA, sin dependencias) con tablero siempre resoluble por logica y pistas que explican el razonamiento.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "vite": "^7.3.6"
+  }
+}
