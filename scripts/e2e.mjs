@@ -247,7 +247,12 @@ for (let step = 0; step < 140; step++) {
   const targets = page.locator('[data-hint="cell"]');
   const n = await targets.count();
   if (n === 0) break; // no logical deduction left: need a guess
-  const isMine = /es mina/i.test(text);
+  // The hint wording agrees in number: "es mina" (one) and "son minas"
+  // (several). Matching only the singular made the harness click deduced
+  // mines and lose at random. Match both, and the safe wording too.
+  const isMine = /\b(es mina|son minas)\b/i.test(text)
+  const isSafe = /\b(es segura|son seguras)\b/i.test(text)
+  if (!isMine && !isSafe) break // unrecognised wording: do not guess;
   const indexes = [];
   for (let k = 0; k < n; k++) {
     indexes.push(await targets.nth(k).getAttribute("data-index"));
@@ -279,6 +284,38 @@ const sw = await page.evaluate(async () => {
   return reg ? "registered" : "none";
 });
 check("service worker registration", sw === "registered" || sw === "no-api", sw);
+
+// F2.5: the reduced-motion kill-switch must be real, not cosmetic. Emulate the
+// preference and assert that nothing animates and the focus ring survives.
+{
+  const rmPage = await browser.newPage({ reducedMotion: "reduce" });
+  await rmPage.goto(`http://localhost:${PORT}/`, { waitUntil: "load" });
+  await rmPage.waitForSelector('[role="grid"]', { timeout: 10000 });
+  await rmPage.locator('[role="gridcell"]').nth(40).click();
+  await rmPage.waitForTimeout(50);
+  const anim = await rmPage.evaluate(() => {
+    const cell = document.querySelector('[data-state="revealed"]');
+    const cs = getComputedStyle(cell);
+    return {
+      name: cs.animationName,
+      duration: cs.animationDuration,
+      transition: cs.transitionDuration,
+    };
+  });
+  const noAnim = anim.name === "none" || anim.duration === "0s";
+  check("reduced motion: no animation on reveal", noAnim, `name=${anim.name} dur=${anim.duration}`);
+
+  // Keyboard focus must still be visible with the preference on.
+  await rmPage.keyboard.press("ArrowRight");
+  const focusVisible = await rmPage.evaluate(() => {
+    const el = document.activeElement;
+    if (!el) return false;
+    const cs = getComputedStyle(el);
+    return cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) > 0;
+  });
+  check("reduced motion: focus ring preserved", focusVisible, String(focusVisible));
+  await rmPage.close();
+}
 
 check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 
