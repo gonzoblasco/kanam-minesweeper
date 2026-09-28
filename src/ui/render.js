@@ -277,9 +277,11 @@ export function mountGame(root, { session } = {}) {
       cell.classList.add(NUM_CLASSES[count])
       cell.textContent = String(count)
     } else if (state === "flagged") {
-      cell.textContent = "\u{1F6A9}"
+      // The flag glyph is wrapped so motion can animate ONLY the glyph, never
+      // the cell border (the border is the measured state signal).
+      cell.innerHTML = '<span class="glyph glyph--flag">\u{1F6A9}</span>'
     } else if (state === "mine" || state === "exploded") {
-      cell.textContent = "\u{1F4A3}"
+      cell.innerHTML = '<span class="glyph glyph--mine">\u{1F4A3}</span>'
     } else {
       cell.textContent = ""
     }
@@ -343,6 +345,9 @@ export function mountGame(root, { session } = {}) {
     syncLevels(st.presetId)
     pauseBtn.textContent = st.paused ? "Continuar" : "Pausar"
     const finished = game.status === "won" || game.status === "lost"
+    // Motion hook: the board carries its phase so CSS can animate win/loss and
+    // the reduced-motion block can be a real kill-switch for it.
+    grid.dataset.status = game.status
     pauseBtn.disabled = finished
     hintBtn.disabled = finished
     newBtn.disabled = false
