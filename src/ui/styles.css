@@ -21,7 +21,8 @@
   --mine: #7f1d1d;
   --exploded-bg: #f6c6c6;
   --hint-bg: #fdf2b8;
-  --hint-line: #8a6d00;
+  --hint-line: #6f5600; /* darkened from #8a6d00: it is used as TEXT on --hint-bg too,
+                          and the old value measured 4.35:1 (below AA 4.5). Now 6.18:1. */
   --focus: #0b5fff;
   --accent: #1c4e8a;
 
