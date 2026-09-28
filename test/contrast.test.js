@@ -104,6 +104,33 @@ test("the cell boundary meets the UI floor on every cell surface", () => {
   }
 });
 
+test("control borders meet the UI floor on every surface they sit on (F2.2)", () => {
+  // `--ctrl-line` is the limit of a UI component (buttons, cards, chip, board,
+  // kbd): WCAG 1.4.11 requires 3:1. `--line` is decorative (separators) and is
+  // deliberately NOT held to this floor.
+  for (const bg of ["surface", "surface-2", "bg"]) {
+    const r = contrast(cssVar("ctrl-line"), cssVar(bg));
+    assert.ok(r >= AA_UI, `ctrl-line on ${bg} = ${r.toFixed(2)}:1 (need >= ${AA_UI})`);
+  }
+});
+
+test("no control border uses the decorative --line (F2.1 regression guard)", () => {
+  // The defect was `--line` (1.24:1) used as a control border. This fails if a
+  // control border regresses to the decorative token. Control blocks are the
+  // ones that also declare a background or a min-height/interactive role; the
+  // allowed --line uses are `border-bottom` separators only.
+  const controlBorder = /border:\s*1px\s+solid\s+var\(--line\)/g;
+  const hits = CSS.match(controlBorder) || [];
+  assert.equal(
+    hits.length,
+    0,
+    `found ${hits.length} control border(s) still on --line; use --ctrl-line`,
+  );
+  // and the separators must still be on --line (they are the only allowed use)
+  const separators = (CSS.match(/border-bottom:\s*1px\s+solid\s+var\(--line\)/g) || []).length;
+  assert.ok(separators >= 3, `expected >= 3 decorative separators on --line, found ${separators}`);
+});
+
 test("the active level boundary and accent line meet the UI floor", () => {
   for (const bg of ["surface", "bg"]) {
     const r = contrast(cssVar("accent-line"), cssVar(bg));

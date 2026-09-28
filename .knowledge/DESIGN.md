@@ -41,11 +41,12 @@ limites de componente y estado `>= 3:1`.
   --cell: #232a34;          /* celda oculta */
   --cell-hover: #2c3542;
   --cell-open: #0f1216;     /* celda revelada: claramente mas oscura */
-  --cell-line: #7d8794;     /* borde de celda: medido 3.97:1 sobre cell, 5.27:1 sobre
-                              cell-open (>= 3:1). El valor viejo #39414d daba 1.40:1 y NO
-                              cumplia; el CSS lo corrigio y este documento quedo mentiroso
-                              hasta el 2026-09-28. Un token de documento se verifica midiendo,
-                              no copiando. */
+  --cell-line: #79828f;     /* borde de celda: es el valor que renderiza el CSS y el que
+                              verifica test/contrast.test.js (3.72:1 sobre cell, 4.83:1 sobre
+                              cell-open, 4.57:1 sobre surface; piso 3:1). El valor viejo
+                              #39414d daba 1.40:1 y NO cumplia. Regla: si el doc y el CSS
+                              discrepan, manda el CSS (es lo que se ve) y el doc se alinea;
+                              test/design-css.test.js falla ante cualquier divergencia. */
   --ctrl-line: #626c7a;     /* borde de controles: 3.34:1 sobre surface, 3.61:1 sobre bg
                               (>= 3:1). --line es SOLO decorativo, nunca borde de control. */
   --flag: #ff7a1a;

@@ -16,7 +16,9 @@
   --bg: #0d0f12;
   --surface: #15181e;
   --surface-2: #1b1f27;
-  --line: #2a303a;
+  --line: #2a303a; /* decorative rules only (separators). NEVER a control limit. */
+  --ctrl-line: #626c7a; /* control borders: measured 3.34:1 on surface, 3.10 on
+                           surface-2, 3.61 on bg (floor 3:1, WCAG 1.4.11). */
 
   /* text */
   --ink: #f5f6f7;
@@ -63,6 +65,14 @@
 
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* motion (vocabulary of STUDIO): one easing family, three durations.
+     Every animation below reads these, so a single edit retimes the app and
+     the reduced-motion block can neutralise all of them at once. */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-fast: 90ms;
+  --dur: 160ms;
+  --dur-slow: 260ms;
 }
 
 * {
@@ -142,7 +152,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--ctrl-line);
   border-radius: 999px;
   padding: 0.4rem 0.85rem;
   background: var(--surface);
@@ -270,7 +280,7 @@ body {
   text-align: left;
   padding: 0.9rem 1rem;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--ctrl-line);
   border-radius: 12px;
   color: var(--muted);
   font: inherit;
@@ -313,7 +323,7 @@ body {
   font: inherit;
   color: var(--ink);
   background: var(--surface-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--ctrl-line);
   border-radius: 10px;
   padding: 0.6rem 1rem;
   min-height: 44px;
@@ -451,7 +461,7 @@ body {
   max-width: 100%;
   padding: var(--board-gap);
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--ctrl-line);
   border-radius: 14px;
   touch-action: manipulation;
 }
@@ -528,6 +538,65 @@ body {
   color: var(--hint-line);
 }
 
+/* --- motion (F2.4) ------------------------------------------------------ */
+/* One easing family, three durations (--ease-out, --dur-fast/dur/dur-slow).
+   RULE: state borders never animate. The flag animates only its glyph; a
+   revealed cell animates only its fill. A border is the measured state signal
+   and moving it would fight the contrast guarantees above. */
+
+@keyframes ms-reveal {
+  from { background-color: var(--cell); }
+  to { background-color: var(--cell-open); }
+}
+
+@keyframes ms-flag-pop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@keyframes ms-hint-pulse {
+  0%, 100% { background-color: var(--hint-bg); }
+  50% { background-color: color-mix(in srgb, var(--hint-bg) 82%, var(--hint-line)); }
+}
+
+@keyframes ms-loss-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+@keyframes ms-win-settle {
+  from { opacity: 0.65; }
+  to { opacity: 1; }
+}
+
+.cell .glyph {
+  display: inline-block;
+  line-height: 1;
+}
+
+.cell[data-state="revealed"] {
+  animation: ms-reveal var(--dur) var(--ease-out);
+}
+
+/* Flag: only the glyph moves, never the border. */
+.cell[data-state="flagged"] .glyph--flag {
+  animation: ms-flag-pop var(--dur) var(--ease-out);
+}
+
+.cell[data-hint="cell"] {
+  animation: ms-hint-pulse var(--dur-slow) var(--ease-out);
+}
+
+.board[data-status="lost"] {
+  animation: ms-loss-shake var(--dur-slow) var(--ease-out);
+}
+
+.board[data-status="won"] {
+  animation: ms-win-settle var(--dur-slow) var(--ease-out);
+}
+
 /* Numbers: each value has its own colour AND its own weight (1-4 regular,
    5-8 heavy), so legibility never rests on hue alone. */
 .cell.num-1 { color: var(--num-1); font-weight: 500; }
@@ -563,7 +632,7 @@ body {
   font-size: 0.7rem;
   letter-spacing: 0.08em;
   padding: 0.2rem 0.5rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--ctrl-line);
   border-radius: 6px;
   background: var(--surface-2);
   color: var(--ink);
@@ -580,7 +649,7 @@ body {
 
 .stat-card {
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--ctrl-line);
   border-radius: 12px;
   padding: 1rem 1.1rem;
 }
