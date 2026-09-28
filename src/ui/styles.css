@@ -1,0 +1,76 @@
+/* src/ui/styles.css */
+/* Accessible Minesweeper UI - no runtime dependencies */
+
+:root {
+  --cell-size: 28px;
+  --border-width: 1px;
+  --border-color: #555;
+  --bg-color: #f0f0f0;
+  --revealed-bg: #ddd;
+  --flag-color: #d00;
+  --text-color: #000;
+  /* Classic number colors with AA contrast */
+  --num-1: #0000ff;   /* blue */
+  --num-2: #008200;   /* green */
+  --num-3: #ff0000;   /* red */
+  --num-4: #000084;   /* dark blue */
+  --num-5: #840000;   /* dark red */
+  --num-6: #008284;   /* cyan */
+  --num-7: #840084;   /* purple */
+  --num-8: #808080;   /* gray */
+}
+
+.board {
+  display: grid;
+  gap: 2px;
+  /* set the number of columns based on board width - JavaScript will set a custom property */
+  grid-template-columns: repeat(var(--board-cols, 9), var(--cell-size));
+  justify-content: start;
+  margin: 1rem 0;
+}
+
+.cell {
+  width: var(--cell-size);
+  height: var(--cell-size);
+  line-height: var(--cell-size);
+  text-align: center;
+  vertical-align: middle;
+  font-weight: bold;
+  font-size: 1rem;
+  background: var(--bg-color);
+  border: var(--border-width) solid var(--border-color);
+  cursor: pointer;
+  user-select: none;
+}
+
+.cell:focus {
+  outline: 3px solid #ff9800; /* orange focus ring - visible */
+  outline-offset: 2px;
+}
+
+.cell.revealed {
+  background: var(--revealed-bg);
+  cursor: default;
+}
+
+.cell.flagged {
+  color: var(--flag-color);
+}
+
+/* Number styling - each number gets its own color and heavier weight */
+.cell.num-1 { color: var(--num-1); }
+.cell.num-2 { color: var(--num-2); }
+.cell.num-3 { color: var(--num-3); }
+.cell.num-4 { color: var(--num-4); }
+.cell.num-5 { color: var(--num-5); }
+.cell.num-6 { color: var(--num-6); }
+.cell.num-7 { color: var(--num-7); }
+.cell.num-8 { color: var(--num-8); }
+
+/* Reduced motion - disable transitions if user prefers */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
