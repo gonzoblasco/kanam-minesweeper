@@ -1,5 +1,5 @@
 // src/core/presets.js
-// Preset definitions – pure data and validation helpers.
+// Preset definitions - pure data and validation helpers.
 
 export const PRESETS = {
   easy: { id: 'easy', label: 'Facil', width: 9, height: 9, mineCount: 10 },

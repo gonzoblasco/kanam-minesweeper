@@ -1,17 +1,17 @@
 // src/core/rng.js
-// Random number utilities – pure functions, no external dependencies.
+// Random number utilities - pure functions, no external dependencies.
 // Implements a deterministic mulberry32 PRNG as required by the spec.
 
 /**
  * Create a deterministic mulberry32 PRNG.
- * @param {number} seed - 32‑bit integer seed.
+ * @param {number} seed - 32-bit integer seed.
  * @returns {() => number} Function that returns a float in [0, 1).
  */
 export function createRng(seed) {
-  // Ensure seed is a 32‑bit unsigned integer.
+  // Ensure seed is a 32-bit unsigned integer.
   let _seed = seed >>> 0
   return function () {
-    // Mulberry32 algorithm – fast, deterministic and suitable for tests.
+    // Mulberry32 algorithm - fast, deterministic and suitable for tests.
     _seed = (_seed + 0x6d2b79f5) >>> 0
     let t = Math.imul(_seed ^ (_seed >>> 15), _seed | 1)
     t = (t ^ (t + Math.imul(t ^ (t >>> 7), t | 61))) >>> 0
@@ -21,14 +21,14 @@ export function createRng(seed) {
 
 /**
  * Derive a new seed from a base seed and an integer attempt number.
- * The operation is deterministic and stays within 32‑bit range.
+ * The operation is deterministic and stays within 32-bit range.
  *
  * @param {number} seed - Base seed.
  * @param {number} n - Attempt index (>= 0).
  * @returns {number} Derived seed.
  */
 export function deriveSeed(seed, n) {
-  // Simple linear congruential mix – enough to be deterministic.
+  // Simple linear congruential mix - enough to be deterministic.
   const mixed = (seed >>> 0) + (n >>> 0) * 0x9e3779b9
   return mixed >>> 0
 }
@@ -48,7 +48,7 @@ export function randInt(rng, maxExclusive) {
 
 /**
  * Return a new shuffled copy of an array using the provided PRNG.
- * Implements Fisher‑Yates without mutating the original array.
+ * Implements Fisher-Yates without mutating the original array.
  *
  * @param {Array<any>} array - Input array.
  * @param {() => number} rng - PRNG function.

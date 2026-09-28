@@ -1,5 +1,5 @@
 // src/core/logic.js
-// Pure logical solver – finds safe or mine deductions using two techniques.
+// Pure logical solver - finds safe or mine deductions using two techniques.
 // The solver never guesses; it only applies deductions that are provably true.
 
 import { neighborsOf } from './board.js'
@@ -24,7 +24,7 @@ export function findDeduction(game) {
     }
     const count = game.counts[i]
     if (hidden.length === 0) continue
-    // Safe deduction – all mines already flagged.
+    // Safe deduction - all mines already flagged.
     if (flagged === count) {
       return {
         technique: 'counting',
@@ -39,7 +39,7 @@ export function findDeduction(game) {
         },
       }
     }
-    // Mine deduction – remaining hidden cells must all be mines.
+    // Mine deduction - remaining hidden cells must all be mines.
     if (flagged + hidden.length === count) {
       return {
         technique: 'counting',
@@ -99,6 +99,7 @@ export function findDeduction(game) {
           action: 'mine',
           cells: extra,
           source: B.index,
+          innerSource: A.index,
           evidence: {
             unit: 'subset',
             count: B.count,
@@ -116,6 +117,7 @@ export function findDeduction(game) {
           action: 'safe',
           cells: extra,
           source: B.index,
+          innerSource: A.index,
           evidence: {
             unit: 'subset',
             count: B.count,
@@ -130,6 +132,28 @@ export function findDeduction(game) {
   }
 
   return null
+}
+
+/**
+ * Summarise the logical state of a game: the deductions available right now,
+ * whether all safe deductions have been exhausted, and how many mines are still
+ * unaccounted for. Pure: the game is only read.
+ * @param {object} game
+ * @returns {{deductions: object[], solved: boolean, remainingMines: number}}
+ */
+export function analyze(game) {
+  let flaggedCount = 0
+  for (let i = 0; i < game.size; i++) {
+    if (game.flagged[i] === 1) flaggedCount++
+  }
+  const deductions = []
+  const d = findDeduction(game)
+  if (d) deductions.push(d)
+  return {
+    deductions,
+    solved: d === null,
+    remainingMines: game.mineCount - flaggedCount,
+  }
 }
 
 /**
@@ -175,7 +199,7 @@ export function verifyDeduction(game, deduction) {
   return false
 }
 
-/** Helper – get hidden candidates and remaining mines for a revealed cell. */
+/** Helper - get hidden candidates and remaining mines for a revealed cell. */
 function getCellInfo(game, idx) {
   const neigh = neighborsOf(game, idx)
   let flagged = 0
@@ -188,7 +212,7 @@ function getCellInfo(game, idx) {
   return { hidden, needed, count: game.counts[idx] }
 }
 
-/** Simple order‑insensitive array equality. */
+/** Simple order-insensitive array equality. */
 function arraysEqual(a, b) {
   if (a.length !== b.length) return false
   const set = new Set(a)

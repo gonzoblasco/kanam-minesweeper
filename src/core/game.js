@@ -1,5 +1,5 @@
 // src/core/game.js
-// Pure game‑state logic – creates a Game object and implements the core actions.
+// Pure game-state logic - creates a Game object and implements the core actions.
 // All functions are pure: they never mutate their arguments; a new Game instance is returned.
 
 import { createBoard, neighborsOf, placeMines, computeCounts } from './board.js'
@@ -24,7 +24,6 @@ export function createGame({ width, height, mineCount }) {
     started: false,
     exploded: false,
     status: 'ready',
-    placed: false, // mirrors board.placed – used internally
   }
 }
 
@@ -39,7 +38,7 @@ export function safeZoneOf(game, i) {
 }
 
 /**
- * Internal helper – deep copy a game while keeping primitive fields.
+ * Internal helper - deep copy a game while keeping primitive fields.
  */
 function copyGame(g) {
   return {
@@ -54,33 +53,31 @@ function copyGame(g) {
     started: g.started,
     exploded: g.exploded,
     status: g.status,
-    placed: g.placed,
   }
 }
 
 /**
- * Reveal a cell – handles first‑click safe placement, flood fill, loss and win.
+ * Reveal a cell - handles first-click safe placement, flood fill, loss and win.
  * @param {object} game
  * @param {number} i
  * @param {() => number} rng - PRNG used only for the first placement.
  * @returns {object} New game state.
  */
 export function reveal(game, i, rng) {
-  // No‑op for already revealed or flagged cells.
+  // No-op for already revealed or flagged cells.
   if (game.revealed[i] === 1 || game.flagged[i] === 1) {
     return game
   }
 
   let newGame = copyGame(game)
 
-  // First click – place mines safely.
+  // First click - place mines safely.
   if (!newGame.started) {
     const safe = safeZoneOf(newGame, i)
     placeMines(newGame, rng, safe)
     computeCounts(newGame)
     newGame.started = true
     newGame.status = 'playing'
-    newGame.placed = true
   }
 
   // Reveal the selected cell.
@@ -123,7 +120,7 @@ function revealCell(game, i) {
     }
   }
 
-  // Victory check – all non‑mine cells revealed.
+  // Victory check - all non-mine cells revealed.
   let hiddenNonMine = false
   for (let idx = 0; idx < newGame.size; idx++) {
     if (newGame.mines[idx] === 0 && newGame.revealed[idx] === 0) {
@@ -139,7 +136,7 @@ function revealCell(game, i) {
 }
 
 /**
- * Toggle a flag on a cell (no‑op on revealed cells).
+ * Toggle a flag on a cell (no-op on revealed cells).
  */
 export function toggleFlag(game, i) {
   if (game.revealed[i] === 1) return game
@@ -149,7 +146,7 @@ export function toggleFlag(game, i) {
 }
 
 /**
- * Perform a chord action – reveals neighbours when the flag count matches the number.
+ * Perform a chord action - reveals neighbours when the flag count matches the number.
  */
 export function chord(game, i) {
   if (game.revealed[i] === 0) return game
@@ -160,7 +157,7 @@ export function chord(game, i) {
   let newGame = copyGame(game)
   for (const idx of neigh) {
     if (newGame.flagged[idx] === 0 && newGame.revealed[idx] === 0) {
-      // Use the same flood‑fill logic as a normal reveal.
+      // Use the same flood-fill logic as a normal reveal.
       newGame = revealCell(newGame, idx)
     }
   }

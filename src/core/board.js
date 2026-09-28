@@ -1,7 +1,8 @@
 // src/core/board.js
-// Pure board utilities – operates on plain objects with typed arrays.
-// The board is immutable from the caller's perspective; functions that mutate
-// receive the board and return the same instance after mutation.
+// Pure board utilities - operates on plain objects with typed arrays.
+// Functions that change board contents (placeMines, computeCounts) mutate the
+// board they are given and return it; the public read helpers (neighborsOf and
+// friends) never mutate their input.
 
 /**
  * Create an empty board.
@@ -10,6 +11,8 @@
  * @param {number} mineCount
  * @returns {object} Board object.
  */
+import { shuffle } from "./rng.js"
+
 export function createBoard(width, height, mineCount) {
   if (width <= 0 || height <= 0) {
     throw new RangeError('Board dimensions must be positive')
@@ -26,8 +29,6 @@ export function createBoard(width, height, mineCount) {
     mines: new Uint8Array(size), // all zeros
     counts: new Uint8Array(size), // all zeros
     placed: false,
-    // internal cache for neighbor lists – not part of the public contract.
-    _neighbors: undefined,
   }
 }
 
@@ -48,12 +49,16 @@ export function inBounds(board, x, y) {
 }
 
 /**
- * Compute neighbour indices for all cells once and cache on the board.
- * @param {object} board
- * @returns {Array<Array<number>>} neighbours per cell.
+ * Precalculated neighbour lists, keyed by board shape (width x height).
+ * Kept in a module-level WeakMap so the geometry is computed once per shape but
+ * the board object itself is never touched: the public helpers stay pure.
  */
-function computeNeighbourCache(board) {
-  const neigh = new Array(board.size)
+const NEIGHBOUR_CACHE = new WeakMap()
+
+function neighbourTable(board) {
+  let table = NEIGHBOUR_CACHE.get(board)
+  if (table) return table
+  table = new Array(board.size)
   for (let i = 0; i < board.size; i++) {
     const x = xOf(board, i)
     const y = yOf(board, i)
@@ -68,16 +73,21 @@ function computeNeighbourCache(board) {
         }
       }
     }
-    neigh[i] = list
+    table[i] = list
   }
-  board._neighbors = neigh
+  NEIGHBOUR_CACHE.set(board, table)
+  return table
 }
 
+/**
+ * Return the neighbour indices of a cell (up to 8).
+ * Read-only: the board is never mutated.
+ * @param {object} board
+ * @param {number} i
+ * @returns {number[]}
+ */
 export function neighborsOf(board, i) {
-  if (!board._neighbors) {
-    computeNeighbourCache(board)
-  }
-  return board._neighbors[i]
+  return neighbourTable(board)[i]
 }
 
 /**
@@ -115,15 +125,12 @@ export function placeMines(board, rng, safeIndices) {
  */
 export function computeCounts(board) {
   const { size } = board
-  // Ensure neighbour cache exists to avoid recompute per cell.
-  if (!board._neighbors) computeNeighbourCache(board)
   for (let i = 0; i < size; i++) {
     if (board.mines[i] === 1) {
       board.counts[i] = 0
     } else {
-      const neigh = board._neighbors[i]
       let c = 0
-      for (const n of neigh) {
+      for (const n of neighborsOf(board, i)) {
         c += board.mines[n]
       }
       board.counts[i] = c

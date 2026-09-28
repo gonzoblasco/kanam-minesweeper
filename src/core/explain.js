@@ -1,17 +1,17 @@
 // src/core/explain.js
-// Human‑readable explanations for deductions – pure functions.
+// Human-readable explanations for deductions - pure functions.
 
 import { xOf, yOf, indexOf } from './board.js'
 
 /**
- * Convert a flat index to a spreadsheet‑style cell name (A1, B3, ...).
+ * Convert a flat index to a spreadsheet-style cell name (A1, B3, ...).
  * @param {object} board
  * @param {number} i
  * @returns {string}
  */
 export function cellName(board, i) {
   const col = xOf(board, i)
-  const row = yOf(board, i) + 1 // rows are 1‑based in the UI
+  const row = yOf(board, i) + 1 // rows are 1-based in the UI
   let letters = ''
   let n = col
   do {
@@ -42,11 +42,13 @@ export function explain(deduction, game) {
     return `La celda ${targets} es mina: el ${count} de la fila ${sourceRow} ya tiene sus ${count} minas marcadas.`
   }
 
-  // Subset technique – we use the stored inner and outer evidence.
+  // Subset technique - we use the stored inner and outer evidence.
   const inner = deduction.evidence.inner
   const outer = deduction.evidence.outer
-  // Pick a representative row for inner based on the first inner cell.
-  const innerRow = inner.cells.length ? yOf(board, inner.cells[0]) + 1 : sourceRow
+  // Name the row of the cell that actually originates the inner reasoning (the
+  // smaller constraint), not an arbitrary member of its hidden cells.
+  const innerSource = deduction.innerSource ?? (inner.cells.length ? inner.cells[0] : deduction.source)
+  const innerRow = yOf(board, innerSource) + 1
   const outerRow = sourceRow
   if (deduction.action === 'safe') {
     return `La celda ${targets} es segura: las celdas del ${inner.count} de la fila ${innerRow} son un subconjunto de las del ${outer.count} de la fila ${outerRow}, y la diferencia queda libre.`
