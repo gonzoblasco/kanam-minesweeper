@@ -2,6 +2,11 @@
 // The only place (with main.js) that touches the DOM. It renders the pure
 // session state and translates user input into session calls; it holds no game
 // rules of its own.
+//
+// The visual system lives in styles.css and is described in .knowledge/DESIGN.md.
+// The markup keeps every control and ARIA contract of the v1: the difficulty
+// control is now a radiogroup of level cards, and everything else is the same
+// grid, hint, counter, clock and buttons.
 
 import { cellLabel, statusText } from "./a11y.js"
 import { moveByKey, isArrowKey } from "./navigation.js"
@@ -19,6 +24,16 @@ const NUM_CLASSES = [
   "num-7",
   "num-8",
 ]
+
+const LEVEL_ORDER = Object.values(PRESETS)
+
+/** Board-state phrase shown next to the level title (never colour-only). */
+const BOARD_STATE = {
+  ready: "Primera jugada segura: despeja el campo con calma.",
+  playing: "Partida en curso: el reloj corre.",
+  won: "Campo despejado.",
+  lost: "Boom. Reinicia y vuelve a intentarlo.",
+}
 
 /** Small helper: create an element with attributes, properties and children. */
 function el(tag, attrs = {}, children = []) {
@@ -70,44 +85,77 @@ export function mountGame(root, { session } = {}) {
 
   // --- static structure ---------------------------------------------------
 
-  const presetSelect = el("select", {
-    id: "preset-select",
-    "aria-label": "Dificultad",
+  // Level selector: a radiogroup of cards. The active card is marked with
+  // `aria-checked` in addition to its border and tint, so the state is never
+  // colour-only. Roving tabindex + arrow keys follow the ARIA radio pattern.
+  const levelGroup = el("div", {
+    class: "level-list",
+    role: "radiogroup",
+    "aria-label": "Nivel",
   })
-  for (const preset of Object.values(PRESETS)) {
-    presetSelect.append(el("option", { value: preset.id, text: preset.label }))
-  }
 
-  const newBtn = el("button", { type: "button", id: "btn-new", text: "Partida nueva" })
-  const restartBtn = el("button", { type: "button", id: "btn-restart", text: "Reiniciar" })
-  const pauseBtn = el("button", { type: "button", id: "btn-pause", text: "Pausar" })
-  const hintBtn = el("button", { type: "button", id: "btn-hint", text: "Pista" })
+  const levelCards = LEVEL_ORDER.map((preset) => {
+    const card = el(
+      "button",
+      {
+        type: "button",
+        class: "level-card",
+        role: "radio",
+        "aria-checked": "false",
+        tabindex: "-1",
+        id: `level-${preset.id}`,
+        dataset: { preset: preset.id },
+      },
+      [
+        el("span", { class: "level-card__name", text: preset.label }),
+        el("span", {
+          class: "level-card__meta",
+          text: `${preset.width} x ${preset.height} - ${preset.mineCount} minas`,
+        }),
+      ],
+    )
+    levelGroup.append(card)
+    return card
+  })
+
+  const newBtn = el("button", {
+    type: "button",
+    id: "btn-new",
+    class: "btn btn--primary",
+    text: "Nuevo campo",
+  })
+  const restartBtn = el("button", { type: "button", id: "btn-restart", class: "btn", text: "Reiniciar" })
+  const pauseBtn = el("button", { type: "button", id: "btn-pause", class: "btn", text: "Pausar" })
+  const hintBtn = el("button", { type: "button", id: "btn-hint", class: "btn", text: "Pista" })
   const flagBtn = el("button", {
     type: "button",
     id: "btn-flag-mode",
+    class: "btn",
     "aria-pressed": "false",
     text: "Modo bandera: off",
   })
 
-  const mineCounter = el("output", { id: "mine-counter", class: "counter" })
-  const timerEl = el("output", { id: "timer", class: "timer" })
-  const statsEl = el("p", { id: "stats", class: "stats" })
+  const levelCurrent = el("span", { class: "section__value", id: "level-current" })
 
-  const controls = el(
-    "div",
-    { class: "controls", role: "group", "aria-label": "Controles de partida" },
-    [
-      el("div", { class: "control" }, [presetSelect]),
-      newBtn,
-      restartBtn,
-      pauseBtn,
-      hintBtn,
-      flagBtn,
-      el("span", { class: "spacer" }),
-      mineCounter,
-      timerEl,
-    ],
-  )
+  const levelSection = el("section", { class: "section", "aria-labelledby": "level-label" }, [
+    el("div", { class: "section__head" }, [
+      el("span", { class: "micro", id: "level-label", text: "Nivel" }),
+      levelCurrent,
+    ]),
+    el("div", { class: "level-row" }, [levelGroup, newBtn]),
+    el(
+      "div",
+      { class: "controls", role: "group", "aria-label": "Controles de partida" },
+      [
+        restartBtn,
+        pauseBtn,
+        hintBtn,
+        flagBtn,
+        el("span", { class: "spacer" }),
+        el("span", { class: "controls__note", text: "Sin conexion - progreso local" }),
+      ],
+    ),
+  ])
 
   const hintEl = el("p", {
     id: "hint",
@@ -116,11 +164,49 @@ export function mountGame(root, { session } = {}) {
     "aria-live": "polite",
   })
 
+  const boardDims = el("span", { class: "section__value", id: "board-dims" })
+  const boardName = el("span", { id: "board-level-name" })
+  const boardStateText = el("span", { id: "board-state-text" })
+
+  const boardHead = el("div", { class: "board-head" }, [
+    el("div", {}, [
+      el("span", { class: "micro", id: "board-label", text: "Tablero" }),
+      el("h2", { class: "board-title" }, [boardName]),
+    ]),
+    el("p", { class: "board-state" }, [
+      el("span", { class: "dot", "aria-hidden": "true" }),
+      boardStateText,
+    ]),
+  ])
+
   const grid = el("div", {
     class: "board",
     role: "grid",
     "aria-label": "Tablero de buscaminas",
   })
+
+  const legend = el("ul", { class: "legend", "aria-label": "Controles del tablero" }, [
+    el("li", {}, [el("kbd", { text: "Click" }), el("span", { text: "revelar" })]),
+    el("li", {}, [el("kbd", { text: "Click derecho" }), el("span", { text: "marcar" })]),
+    el("li", {}, [el("kbd", { text: "Doble click" }), el("span", { text: "chording" })]),
+    el("li", {}, [el("kbd", { text: "Modo bandera" }), el("span", { text: "en touch" })]),
+    el("li", {}, [el("kbd", { text: "Flechas" }), el("span", { text: "mover - Enter revela" })]),
+  ])
+
+  const boardSection = el("section", { class: "section", "aria-labelledby": "board-label" }, [
+    el("div", { class: "section__head" }, [
+      el("span", { class: "micro", text: "Campo de minas" }),
+      boardDims,
+    ]),
+    boardHead,
+    grid,
+    legend,
+  ])
+
+  const mineCounter = el("output", { id: "mine-counter", class: "stat-card__value" })
+  const timerEl = el("output", { id: "timer", class: "stat-card__value" })
+
+  const statsEl = el("p", { id: "stats", class: "record" })
 
   const statusEl = el("p", {
     id: "status",
@@ -129,7 +215,25 @@ export function mountGame(root, { session } = {}) {
     class: "sr-status",
   })
 
-  root.append(controls, hintEl, grid, statsEl, statusEl)
+  const statsSection = el("section", { class: "section", "aria-labelledby": "stats-label" }, [
+    el("div", { class: "section__head" }, [
+      el("span", { class: "micro", id: "stats-label", text: "Estado" }),
+    ]),
+    el("div", { class: "stats-cards" }, [
+      el("div", { class: "stat-card" }, [
+        el("span", { class: "micro", text: "Minas restantes" }),
+        mineCounter,
+      ]),
+      el("div", { class: "stat-card" }, [
+        el("span", { class: "micro", text: "Tiempo" }),
+        timerEl,
+      ]),
+    ]),
+    statsEl,
+    statusEl,
+  ])
+
+  root.append(levelSection, hintEl, boardSection, statsSection)
 
   // --- rendering ----------------------------------------------------------
 
@@ -201,11 +305,27 @@ export function mountGame(root, { session } = {}) {
     if (focus && next) next.focus()
   }
 
+  /** Roving tabindex for the level radiogroup: only the active card is tabbable. */
+  function syncLevels(presetId) {
+    for (const card of levelCards) {
+      const active = card.dataset.preset === presetId
+      card.setAttribute("aria-checked", String(active))
+      card.tabIndex = active ? 0 : -1
+    }
+    const preset = PRESETS[presetId]
+    if (preset) {
+      levelCurrent.textContent = `${preset.width} x ${preset.height} - ${preset.mineCount} minas`
+      boardDims.textContent = `${preset.width} x ${preset.height}`
+      boardName.textContent = `Campo ${preset.label}`
+    }
+  }
+
   function updateLive() {
     const st = session.state
-    mineCounter.textContent = `Minas: ${remainingMines(st.game)}`
-    timerEl.textContent = `Tiempo: ${formatClock(st.elapsedMs)}`
+    mineCounter.textContent = String(remainingMines(st.game))
+    timerEl.textContent = formatClock(st.elapsedMs)
     statusEl.textContent = statusText(st.game, { elapsedMs: st.elapsedMs })
+    boardStateText.textContent = BOARD_STATE[st.game.status] ?? BOARD_STATE.ready
     const best = st.stats.bestTimes[st.presetId]
     statsEl.textContent =
       `Jugadas ${st.stats.totalGames} - Ganadas ${st.stats.totalWins} - ` +
@@ -220,7 +340,7 @@ export function mountGame(root, { session } = {}) {
     for (let i = 0; i < game.size; i++) syncCell(game, i)
     if (cells[cursor]) cells[cursor].tabIndex = 0
 
-    presetSelect.value = st.presetId
+    syncLevels(st.presetId)
     pauseBtn.textContent = st.paused ? "Continuar" : "Pausar"
     const finished = game.status === "won" || game.status === "lost"
     pauseBtn.disabled = finished
@@ -383,11 +503,42 @@ export function mountGame(root, { session } = {}) {
     grid.classList.toggle("flag-mode", flagMode)
   }
 
-  newBtn.addEventListener("click", () => {
+  function chooseLevel(presetId, { focus = false } = {}) {
     clearHint()
-    session.newGame(presetSelect.value)
+    session.newGame(presetId)
     cursor = 0
     render()
+    if (focus) {
+      const card = levelCards.find((c) => c.dataset.preset === presetId)
+      if (card) card.focus()
+    }
+  }
+
+  for (const card of levelCards) {
+    card.addEventListener("click", () => chooseLevel(card.dataset.preset))
+  }
+
+  // ARIA radio pattern: arrows move and select within the radiogroup.
+  levelGroup.addEventListener("keydown", (event) => {
+    const current = levelCards.findIndex((c) => c.getAttribute("aria-checked") === "true")
+    let next = -1
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      next = (current + 1 + levelCards.length) % levelCards.length
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      next = (current - 1 + levelCards.length) % levelCards.length
+    } else if (event.key === "Home") {
+      next = 0
+    } else if (event.key === "End") {
+      next = levelCards.length - 1
+    }
+    if (next >= 0) {
+      event.preventDefault()
+      chooseLevel(levelCards[next].dataset.preset, { focus: true })
+    }
+  })
+
+  newBtn.addEventListener("click", () => {
+    chooseLevel(session.state.presetId)
   })
 
   restartBtn.addEventListener("click", () => {
@@ -408,13 +559,6 @@ export function mountGame(root, { session } = {}) {
 
   flagBtn.addEventListener("click", () => {
     toggleFlagMode()
-  })
-
-  presetSelect.addEventListener("change", () => {
-    clearHint()
-    session.newGame(presetSelect.value)
-    cursor = 0
-    render()
   })
 
   // --- clock --------------------------------------------------------------
@@ -438,4 +582,3 @@ export function mountGame(root, { session } = {}) {
     },
   }
 }
-

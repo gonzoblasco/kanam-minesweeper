@@ -8,19 +8,72 @@
       name="description"
       content="Buscaminas clasico, jugable en el navegador, con primer clic seguro y pistas que explican el razonamiento."
     />
-    <meta name="theme-color" content="#1c4e8a" />
+    <meta name="theme-color" content="#0d0f12" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   </head>
   <body>
     <header class="app-header">
-      <h1>Kanam MINESWEEPER</h1>
-      <p class="tagline">
-        Primer clic siempre seguro. Pista explica el porque, no solo el resultado.
-      </p>
+      <div class="app-shell app-header__inner">
+        <span class="lockup">
+          <svg
+            class="lockup__mark"
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <rect x="1" y="1" width="16" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="1.5" />
+            <rect x="6" y="6" width="6" height="6" rx="1.5" fill="currentColor" />
+          </svg>
+          <span class="lockup__word">KANAM</span>
+          <span class="lockup__word lockup__word--dim">MINESWEEPER</span>
+        </span>
+        <span class="chip">
+          <span class="chip__dot" aria-hidden="true"></span>
+          Campo local - sin conexion
+        </span>
+      </div>
     </header>
-    <main id="app"></main>
+
+    <main class="app-shell">
+      <section class="hero" aria-labelledby="hero-title">
+        <div>
+          <p class="hero__eyebrow">
+            <span class="hero__numeral" aria-hidden="true">01</span>
+            <span class="micro">Lee - marca - revela</span>
+          </p>
+          <h1 class="hero__title" id="hero-title">
+            <span class="hero__title-ink">Piensa en frio.</span>
+            <span class="hero__title-accent">Despeja el campo.</span>
+          </h1>
+          <p class="hero__lede">
+            Primer clic siempre seguro. Las pistas explican el porque, no solo el
+            resultado. Y cada razonamiento se puede verificar contra el tablero.
+          </p>
+        </div>
+        <svg
+          class="hero__graphic"
+          width="150"
+          height="150"
+          viewBox="0 0 150 150"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <rect x="1" y="1" width="148" height="148" rx="18" fill="none" stroke="currentColor" stroke-width="1" />
+          <path d="M20 130 L20 20 L130 20" fill="none" stroke="currentColor" stroke-width="1" />
+          <path d="M20 130 L130 130" fill="none" stroke="currentColor" stroke-width="1" />
+          <path d="M75 20 L75 75 L130 75" fill="none" stroke="currentColor" stroke-width="1" />
+          <path d="M20 75 L75 75" fill="none" stroke="currentColor" stroke-width="1" />
+          <circle class="hero__node" cx="75" cy="75" r="5" />
+        </svg>
+      </section>
+
+      <div id="app"></div>
+    </main>
+
     <script type="module" src="/src/ui/main.js"></script>
   </body>
 </html>

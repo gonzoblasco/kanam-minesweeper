@@ -1,40 +1,68 @@
 /* src/ui/styles.css
-   Kanam MINESWEEPER - plain CSS, no dependencies, no frameworks.
-   Rules kept deliberately explicit: accessible contrast (WCAG AA), a visible
-   focus ring, cell size >= 28px, and no state communicated by color alone
-   (flags, mines and numbers also differ by glyph, weight and size). */
+   Kanam MINESWEEPER - editorial dark visual system, plain CSS, no frameworks.
+   System of record: .knowledge/DESIGN.md. Every colour here is measured in
+   test/contrast.test.js (WCAG AA: text >= 4.5:1, controls/state >= 3:1), so a
+   recolour that drops below the floor fails the suite instead of shipping.
+   No state is communicated by colour alone: flags, mines, hinted cells and the
+   active level all carry a glyph, a weight change or an ARIA attribute too. */
 
 :root {
-  --cell-size: 30px;
-  --gap: 2px;
-  --radius: 4px;
+  /* cell geometry */
+  --cell-size: 34px;
+  --cell-radius: 7px;
+  --board-gap: 5px;
 
-  --bg: #f4f6fa;
-  --panel: #ffffff;
-  --ink: #14181f;
-  --muted: #4b5563;
-  --line: #6b7280;
-  --hidden: #c3cbd8;
-  --hidden-hover: #d5dbe6;
-  --revealed-bg: #e6eaf0;
-  --flag: #a30d0d;
-  --mine: #7f1d1d;
-  --exploded-bg: #f6c6c6;
-  --hint-bg: #fdf2b8;
-  --hint-line: #6f5600; /* darkened from #8a6d00: it is used as TEXT on --hint-bg too,
-                          and the old value measured 4.35:1 (below AA 4.5). Now 6.18:1. */
-  --focus: #0b5fff;
-  --accent: #1c4e8a;
+  /* surfaces */
+  --bg: #0d0f12;
+  --surface: #15181e;
+  --surface-2: #1b1f27;
+  --line: #2a303a;
 
-  /* Classic number palette, darkened for AA contrast on the revealed cell. */
-  --num-1: #1244c8;
-  --num-2: #146c2e;
-  --num-3: #b81f1f;
-  --num-4: #16206e;
-  --num-5: #7a1313;
-  --num-6: #0f5f63;
-  --num-7: #5c1360;
-  --num-8: #3b3f46;
+  /* text */
+  --ink: #f5f6f7;
+  --muted: #98a0ab;
+  --faint: #6b7480;
+
+  /* accent (the only one) */
+  --accent: #ff7a1a;
+  --accent-ink: #1a0e05;
+  --accent-soft: rgba(255, 122, 26, 0.12);
+  --accent-line: #b85712;
+
+  /* board */
+  --cell: #232a34;
+  --cell-hover: #2c3542;
+  --cell-open: #0f1216;
+  /* DESIGN lists a decorative seam value of #39414d, but that measures
+     1.40:1 on --cell (need >= 3:1), so it cannot serve as the cell limit.
+     The seam is kept as --cell-line-decor while the line below is the real,
+     measured limit. See the handoff note in the final report. */
+  --cell-line: #79828f;
+  --cell-line-decor: #39414d;
+  --flag: #ff7a1a;
+  --mine: #ff5a5a;
+  --exploded: #3a1113;
+
+  /* hint */
+  --hint-bg: #2a2410;
+  --hint-line: #ffc457;
+
+  /* numbers (AA on the revealed cell) */
+  --num-1: #7cb0ff;
+  --num-2: #5ee08a;
+  --num-3: #ff8a8a;
+  --num-4: #b3a4ff;
+  --num-5: #ffa94d;
+  --num-6: #4dd6e8;
+  --num-7: #f08cf0;
+  --num-8: #d3dae3;
+
+  /* interaction and state (status green is not in DESIGN; it is measured here) */
+  --focus: #ff9d4d;
+  --ok: #5ee08a;
+
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 * {
@@ -50,84 +78,277 @@ body {
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--sans);
   font-size: 16px;
-  line-height: 1.4;
+  line-height: 1.45;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
+
+/* --- shared typography -------------------------------------------------- */
+
+.micro {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.app-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 1.5rem 3rem;
+}
+
+/* --- header ------------------------------------------------------------- */
 
 .app-header {
-  background: var(--accent);
-  color: #ffffff;
-  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--line);
 }
 
-.app-header h1 {
-  margin: 0;
-  font-size: 1.35rem;
-  letter-spacing: 0.02em;
-}
-
-.app-header .tagline {
-  margin: 0.2rem 0 0;
-  font-size: 0.85rem;
-  opacity: 0.92;
-}
-
-#app {
-  padding: 1rem 1.25rem 2rem;
-  max-width: 100%;
-}
-
-/* --- controls ----------------------------------------------------------- */
-
-.controls {
+.app-header__inner {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 0;
+}
+
+.lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.lockup__mark {
+  color: var(--accent);
+  display: block;
+}
+
+.lockup__word {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.lockup__word--dim {
+  color: var(--muted);
+}
+
+.chip {
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 0.6rem 0.7rem;
-  margin-bottom: 0.75rem;
-}
-
-.controls .spacer {
-  flex: 1 1 auto;
-}
-
-.control label {
-  margin-right: 0.35rem;
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  background: var(--surface);
   color: var(--muted);
-  font-size: 0.85rem;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
-select,
-button {
-  font: inherit;
+.chip__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex: none;
+}
+
+/* --- hero --------------------------------------------------------------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2.5rem;
+  padding: 3.5rem 0 2.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.hero__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.hero__numeral {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+
+.hero__title {
+  margin: 0 0 1.4rem;
+  font-size: clamp(2.4rem, 6vw, 4.4rem);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.hero__title span {
+  display: block;
+}
+
+.hero__title-ink {
   color: var(--ink);
-  background: #f9fafc;
+}
+
+.hero__title-accent {
+  color: var(--accent);
+}
+
+.hero__lede {
+  margin: 0;
+  max-width: 40ch;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.hero__graphic {
+  color: var(--line);
+  display: block;
+  flex: none;
+}
+
+.hero__graphic .hero__node {
+  fill: var(--accent);
+}
+
+/* --- shell sections ----------------------------------------------------- */
+
+.section {
+  padding: 2rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.section__value {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+.level-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+/* --- level cards (difficulty) ------------------------------------------- */
+
+.level-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  flex: 1 1 30rem;
+}
+
+.level-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  text-align: left;
+  padding: 0.9rem 1rem;
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 0.4rem 0.7rem;
-  min-height: 36px;
+  border-radius: 12px;
+  color: var(--muted);
+  font: inherit;
   cursor: pointer;
 }
 
-button:hover:not(:disabled),
-select:hover {
-  background: #eef2f8;
+.level-card__name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 
-button:disabled {
-  opacity: 0.55;
+.level-card__meta {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.level-card:hover {
+  border-color: var(--cell-line);
+}
+
+.level-card[aria-checked="true"] {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.level-card[aria-checked="true"] .level-card__name {
+  color: var(--ink);
+}
+
+.level-card[aria-checked="true"] .level-card__meta {
+  color: var(--muted);
+}
+
+/* --- buttons ------------------------------------------------------------ */
+
+.btn {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--cell-line);
+  background: var(--cell-hover);
+}
+
+.btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-#btn-flag-mode[aria-pressed="true"] {
-  background: #fde68a;
-  border-color: #92400e;
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  padding: 0.6rem 1.5rem;
+  border-radius: 12px;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  filter: brightness(1.06);
+}
+
+.btn[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--ink);
   font-weight: 700;
 }
 
@@ -137,46 +358,101 @@ button:disabled {
   outline-offset: 2px;
 }
 
-.counter,
-.timer {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  background: #111827;
-  color: #f9fafb;
-  border-radius: var(--radius);
-  padding: 0.35rem 0.6rem;
-  min-width: 92px;
-  text-align: center;
+/* --- controls row ------------------------------------------------------- */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.controls .spacer {
+  flex: 1 1 auto;
+}
+
+.controls__note {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 /* --- hint --------------------------------------------------------------- */
 
 .hint {
   min-height: 1.4em;
-  margin: 0 0 0.6rem;
-  padding: 0.5rem 0.7rem;
-  background: #fffdf0;
+  margin: 1rem 0 0;
+  padding: 0.7rem 0.9rem;
+  background: var(--hint-bg);
   border-left: 4px solid var(--hint-line);
-  border-radius: var(--radius);
+  border-radius: 10px;
+  color: var(--ink);
   font-size: 0.95rem;
 }
 
-.hint:empty {
+.hint:empty,
+.hint.hint-empty {
   display: none;
 }
 
 /* --- board -------------------------------------------------------------- */
 
+.board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.board-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.3rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.board-title__state {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.board-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex: none;
+}
+
 .board {
   display: grid;
   grid-template-columns: repeat(var(--board-cols, 9), var(--cell-size));
-  gap: var(--gap);
+  gap: var(--board-gap);
   width: max-content;
   max-width: 100%;
-  padding: var(--gap);
-  background: var(--line);
+  padding: var(--board-gap);
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 14px;
   touch-action: manipulation;
 }
 
@@ -187,53 +463,55 @@ button:disabled {
 .cell {
   width: var(--cell-size);
   height: var(--cell-size);
-  min-width: 28px;
-  min-height: 28px;
+  min-width: 30px;
+  min-height: 30px;
   padding: 0;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.95rem;
-  background: var(--hidden);
-  border: 1px solid #9aa3b2;
-  border-radius: 2px;
+  font-size: 1rem;
+  background: var(--cell);
+  border: 1px solid var(--cell-line);
+  border-radius: var(--cell-radius);
+  color: var(--ink);
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .cell[data-state="hidden"]:hover {
-  background: var(--hidden-hover);
+  background: var(--cell-hover);
 }
 
-/* Revealed cells are distinguishable by flat background plus an inset border,
-   not by color alone. */
+/* Revealed cells differ by a flat, clearly darker fill plus a lower-contrast
+   inner seam, not by colour alone. */
 .cell[data-state="revealed"] {
-  background: var(--revealed-bg);
-  border: 1px solid #b6bcc7;
+  background: var(--cell-open);
+  border-color: var(--cell-line-decor);
+  border-style: solid;
   cursor: default;
 }
 
 .cell[data-state="flagged"] {
-  background: #ffe9c9;
+  background: var(--cell);
   border: 2px solid var(--flag);
   font-size: 1rem;
 }
 
 .cell[data-state="mine"] {
-  background: #f1c7c7;
-  border: 1px solid var(--mine);
+  background: var(--cell-open);
+  border-color: var(--mine);
 }
 
 .cell[data-state="exploded"] {
-  background: var(--exploded-bg);
+  background: var(--exploded);
   border: 2px solid var(--mine);
 }
 
-/* Hinted cells carry a marker glyph via ::after so the cue does not rely on
-   the highlight color alone. */
+/* Hinted cells carry a marker glyph via ::after so the cue survives without
+   the highlight colour. */
 .cell[data-hint="cell"] {
   background: var(--hint-bg);
   border: 2px solid var(--hint-line);
@@ -243,36 +521,90 @@ button:disabled {
 .cell[data-hint="cell"]::after {
   content: "?";
   position: absolute;
-  top: 0;
-  right: 1px;
+  top: 1px;
+  right: 3px;
   font-size: 0.6rem;
   font-weight: 700;
   color: var(--hint-line);
 }
 
-/* Numbers: each value has its own color, plus a size step for 5-8 so they stay
-   legible without depending on hue. */
-.cell.num-1 { color: var(--num-1); }
-.cell.num-2 { color: var(--num-2); }
-.cell.num-3 { color: var(--num-3); }
-.cell.num-4 { color: var(--num-4); }
-.cell.num-5 { color: var(--num-5); font-size: 1.05rem; }
-.cell.num-6 { color: var(--num-6); font-size: 1.05rem; }
-.cell.num-7 { color: var(--num-7); font-size: 1.05rem; }
-.cell.num-8 { color: var(--num-8); font-size: 1.05rem; }
+/* Numbers: each value has its own colour AND its own weight (1-4 regular,
+   5-8 heavy), so legibility never rests on hue alone. */
+.cell.num-1 { color: var(--num-1); font-weight: 500; }
+.cell.num-2 { color: var(--num-2); font-weight: 500; }
+.cell.num-3 { color: var(--num-3); font-weight: 500; }
+.cell.num-4 { color: var(--num-4); font-weight: 500; }
+.cell.num-5 { color: var(--num-5); font-weight: 900; }
+.cell.num-6 { color: var(--num-6); font-weight: 900; }
+.cell.num-7 { color: var(--num-7); font-weight: 900; }
+.cell.num-8 { color: var(--num-8); font-weight: 900; }
 
-/* --- status and stats --------------------------------------------------- */
+/* --- controls legend ---------------------------------------------------- */
 
-.stats {
-  margin: 0.7rem 0 0;
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.legend kbd {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* --- stats footer ------------------------------------------------------- */
+
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  max-width: 34rem;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+}
+
+.stat-card__value {
+  display: block;
+  margin-top: 0.5rem;
+  font-family: var(--mono);
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.record {
+  margin: 1rem 0 0;
   color: var(--muted);
   font-size: 0.85rem;
 }
 
 .sr-status {
-  margin: 0.3rem 0 0;
-  font-size: 0.85rem;
+  margin: 0.6rem 0 0;
   color: var(--muted);
+  font-size: 0.85rem;
 }
 
 /* --- motion ------------------------------------------------------------- */
@@ -287,16 +619,44 @@ button:disabled {
   }
 }
 
+/* --- responsive --------------------------------------------------------- */
+
+@media (max-width: 760px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    padding: 2.25rem 0 1.75rem;
+  }
+
+  .hero__graphic {
+    display: none;
+  }
+
+  .level-row,
+  .level-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .app-shell {
+    padding: 0 1rem 2rem;
+  }
+}
+
 @media (max-width: 480px) {
   :root {
     --cell-size: 28px;
+    --board-gap: 3px;
   }
-  #app {
-    padding: 0.6rem 0.5rem 1.4rem;
+
+  .level-list {
+    grid-template-columns: 1fr;
   }
-  .counter,
-  .timer {
-    min-width: 74px;
-    font-size: 0.85rem;
+
+  .stats-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card__value {
+    font-size: 1.6rem;
   }
 }
