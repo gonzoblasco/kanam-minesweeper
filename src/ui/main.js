@@ -1,26 +1,41 @@
 // src/ui/main.js
-// Entry point - instantiated by Vite.
-// Sets up the game board and registers the service worker in production.
+// Entry point: builds the session over the real localStorage and mounts the UI.
 
-import { renderBoard } from "./render.js";
-import { registerServiceWorker } from "./pwa.js";
+import { mountGame } from "./render.js"
+import { GameSession } from "./session.js"
+import { registerServiceWorker } from "./pwa.js"
+import "./styles.css" // bundled by Vite; no runtime dependency
 
-function init() {
-  const app = document.getElementById("app");
-  if (!app) {
-    console.error("#app container not found");
-    return;
-  }
-  // Provide the board width as a CSS custom property for the grid layout.
-  // The GameSession default is 9x9.
-  app.style.setProperty("--board-cols", "9");
-  // Render the Minesweeper board.
-  renderBoard(app);
-
-  // Register the service worker only in production builds.
-  if (import.meta.env.PROD) {
-    registerServiceWorker();
+function safeStorage() {
+  try {
+    return globalThis.localStorage ?? null
+  } catch {
+    // Storage can throw in private mode; the game still works in memory.
+    return null
   }
 }
 
-init();
+function init() {
+  const app = document.getElementById("app")
+  if (!app) {
+    console.error("#app container not found")
+    return
+  }
+  const session = new GameSession({ storage: safeStorage() })
+  mountGame(app, { session })
+
+  // The service worker is only useful (and only safe) in the built site.
+  if (import.meta.env.PROD) {
+    registerServiceWorker()
+  }
+}
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true })
+  } else {
+    init()
+  }
+}
+
+export { init }

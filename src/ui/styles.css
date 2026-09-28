@@ -1,76 +1,301 @@
-/* src/ui/styles.css */
-/* Accessible Minesweeper UI - no runtime dependencies */
+/* src/ui/styles.css
+   Kanam MINESWEEPER - plain CSS, no dependencies, no frameworks.
+   Rules kept deliberately explicit: accessible contrast (WCAG AA), a visible
+   focus ring, cell size >= 28px, and no state communicated by color alone
+   (flags, mines and numbers also differ by glyph, weight and size). */
 
 :root {
-  --cell-size: 28px;
-  --border-width: 1px;
-  --border-color: #555;
-  --bg-color: #f0f0f0;
-  --revealed-bg: #ddd;
-  --flag-color: #d00;
-  --text-color: #000;
-  /* Classic number colors with AA contrast */
-  --num-1: #0000ff;   /* blue */
-  --num-2: #008200;   /* green */
-  --num-3: #ff0000;   /* red */
-  --num-4: #000084;   /* dark blue */
-  --num-5: #840000;   /* dark red */
-  --num-6: #008284;   /* cyan */
-  --num-7: #840084;   /* purple */
-  --num-8: #808080;   /* gray */
+  --cell-size: 30px;
+  --gap: 2px;
+  --radius: 4px;
+
+  --bg: #f4f6fa;
+  --panel: #ffffff;
+  --ink: #14181f;
+  --muted: #4b5563;
+  --line: #6b7280;
+  --hidden: #c3cbd8;
+  --hidden-hover: #d5dbe6;
+  --revealed-bg: #e6eaf0;
+  --flag: #a30d0d;
+  --mine: #7f1d1d;
+  --exploded-bg: #f6c6c6;
+  --hint-bg: #fdf2b8;
+  --hint-line: #8a6d00;
+  --focus: #0b5fff;
+  --accent: #1c4e8a;
+
+  /* Classic number palette, darkened for AA contrast on the revealed cell. */
+  --num-1: #1244c8;
+  --num-2: #146c2e;
+  --num-3: #b81f1f;
+  --num-4: #16206e;
+  --num-5: #7a1313;
+  --num-6: #0f5f63;
+  --num-7: #5c1360;
+  --num-8: #3b3f46;
 }
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  min-height: 100vh;
+}
+
+.app-header {
+  background: var(--accent);
+  color: #ffffff;
+  padding: 0.9rem 1.25rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: 0.02em;
+}
+
+.app-header .tagline {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.92;
+}
+
+#app {
+  padding: 1rem 1.25rem 2rem;
+  max-width: 100%;
+}
+
+/* --- controls ----------------------------------------------------------- */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.7rem;
+  margin-bottom: 0.75rem;
+}
+
+.controls .spacer {
+  flex: 1 1 auto;
+}
+
+.control label {
+  margin-right: 0.35rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+select,
+button {
+  font: inherit;
+  color: var(--ink);
+  background: #f9fafc;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.7rem;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled),
+select:hover {
+  background: #eef2f8;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+#btn-flag-mode[aria-pressed="true"] {
+  background: #fde68a;
+  border-color: #92400e;
+  font-weight: 700;
+}
+
+:focus-visible,
+.cell:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.counter,
+.timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  background: #111827;
+  color: #f9fafb;
+  border-radius: var(--radius);
+  padding: 0.35rem 0.6rem;
+  min-width: 92px;
+  text-align: center;
+}
+
+/* --- hint --------------------------------------------------------------- */
+
+.hint {
+  min-height: 1.4em;
+  margin: 0 0 0.6rem;
+  padding: 0.5rem 0.7rem;
+  background: #fffdf0;
+  border-left: 4px solid var(--hint-line);
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+}
+
+.hint:empty {
+  display: none;
+}
+
+/* --- board -------------------------------------------------------------- */
 
 .board {
   display: grid;
-  gap: 2px;
-  /* set the number of columns based on board width - JavaScript will set a custom property */
   grid-template-columns: repeat(var(--board-cols, 9), var(--cell-size));
-  justify-content: start;
-  margin: 1rem 0;
+  gap: var(--gap);
+  width: max-content;
+  max-width: 100%;
+  padding: var(--gap);
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  touch-action: manipulation;
+}
+
+.board-row {
+  display: contents;
 }
 
 .cell {
   width: var(--cell-size);
   height: var(--cell-size);
-  line-height: var(--cell-size);
-  text-align: center;
-  vertical-align: middle;
-  font-weight: bold;
-  font-size: 1rem;
-  background: var(--bg-color);
-  border: var(--border-width) solid var(--border-color);
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  background: var(--hidden);
+  border: 1px solid #9aa3b2;
+  border-radius: 2px;
   cursor: pointer;
   user-select: none;
+  -webkit-user-select: none;
 }
 
-.cell:focus {
-  outline: 3px solid #ff9800; /* orange focus ring - visible */
-  outline-offset: 2px;
+.cell[data-state="hidden"]:hover {
+  background: var(--hidden-hover);
 }
 
-.cell.revealed {
+/* Revealed cells are distinguishable by flat background plus an inset border,
+   not by color alone. */
+.cell[data-state="revealed"] {
   background: var(--revealed-bg);
+  border: 1px solid #b6bcc7;
   cursor: default;
 }
 
-.cell.flagged {
-  color: var(--flag-color);
+.cell[data-state="flagged"] {
+  background: #ffe9c9;
+  border: 2px solid var(--flag);
+  font-size: 1rem;
 }
 
-/* Number styling - each number gets its own color and heavier weight */
+.cell[data-state="mine"] {
+  background: #f1c7c7;
+  border: 1px solid var(--mine);
+}
+
+.cell[data-state="exploded"] {
+  background: var(--exploded-bg);
+  border: 2px solid var(--mine);
+}
+
+/* Hinted cells carry a marker glyph via ::after so the cue does not rely on
+   the highlight color alone. */
+.cell[data-hint="cell"] {
+  background: var(--hint-bg);
+  border: 2px solid var(--hint-line);
+  position: relative;
+}
+
+.cell[data-hint="cell"]::after {
+  content: "?";
+  position: absolute;
+  top: 0;
+  right: 1px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--hint-line);
+}
+
+/* Numbers: each value has its own color, plus a size step for 5-8 so they stay
+   legible without depending on hue. */
 .cell.num-1 { color: var(--num-1); }
 .cell.num-2 { color: var(--num-2); }
 .cell.num-3 { color: var(--num-3); }
 .cell.num-4 { color: var(--num-4); }
-.cell.num-5 { color: var(--num-5); }
-.cell.num-6 { color: var(--num-6); }
-.cell.num-7 { color: var(--num-7); }
-.cell.num-8 { color: var(--num-8); }
+.cell.num-5 { color: var(--num-5); font-size: 1.05rem; }
+.cell.num-6 { color: var(--num-6); font-size: 1.05rem; }
+.cell.num-7 { color: var(--num-7); font-size: 1.05rem; }
+.cell.num-8 { color: var(--num-8); font-size: 1.05rem; }
 
-/* Reduced motion - disable transitions if user prefers */
+/* --- status and stats --------------------------------------------------- */
+
+.stats {
+  margin: 0.7rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.sr-status {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* --- motion ------------------------------------------------------------- */
+
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     transition: none !important;
     animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --cell-size: 28px;
+  }
+  #app {
+    padding: 0.6rem 0.5rem 1.4rem;
+  }
+  .counter,
+  .timer {
+    min-width: 74px;
+    font-size: 0.85rem;
   }
 }

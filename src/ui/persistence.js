@@ -1,19 +1,28 @@
-/**
- * Persistence layer for the Minesweeper UI.
- * The schema is deliberately tiny - only the information needed to restore a
- * playing session is stored (game state, preset, statistics and elapsed time).
- * All functions are pure; they never throw because storage problems are handled
- * by returning a clean payload and the `recovered` flag.
- */
+// src/ui/persistence.js
+// Pure persistence layer: no DOM, no browser globals. Every function is safe to
+// call with a missing or broken storage: nothing here ever throws.
+//
+// Stored shape (one key, JSON):
+//   {
+//     schemaVersion: number,
+//     game: serialized game | null,
+//     presetId: string | null,
+//     stats: stats object,
+//     elapsedMs: number
+//   }
+//
+// `counts` is derived data and is recomputed on load, never trusted from disk.
+
+import { computeCounts } from "../core/board.js"
 
 export const SCHEMA_VERSION = 1
-const STORAGE_KEY = "kanam-minesweeper"
+export const STORAGE_KEY = "kanam-minesweeper"
+
+const STATUSES = ["ready", "playing", "won", "lost"]
 
 /**
- * Return a fresh statistics object.
- * Shape (all numbers):
- *   totalGames, totalWins, totalLosses, currentStreak, maxStreak, bestTimes
- * where `bestTimes` maps preset ids to the best win time (ms).
+ * Fresh statistics object.
+ * bestTimes maps presetId -> best winning time in milliseconds.
  */
 export function defaultStats() {
   return {
@@ -22,123 +31,216 @@ export function defaultStats() {
     totalLosses: 0,
     currentStreak: 0,
     maxStreak: 0,
-    bestTimes: {}
+    bestTimes: {},
+  }
+}
+
+/** Coerce any value into a complete, valid stats object. */
+export function normalizeStats(stats) {
+  const base = defaultStats()
+  if (!stats || typeof stats !== "object") return base
+  const bestTimes = {}
+  if (stats.bestTimes && typeof stats.bestTimes === "object") {
+    for (const [key, value] of Object.entries(stats.bestTimes)) {
+      if (typeof key === "string" && Number.isFinite(value) && value >= 0) {
+        bestTimes[key] = value
+      }
+    }
+  }
+  const n = (v) => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0)
+  return {
+    totalGames: n(stats.totalGames),
+    totalWins: n(stats.totalWins),
+    totalLosses: n(stats.totalLosses),
+    currentStreak: n(stats.currentStreak),
+    maxStreak: n(stats.maxStreak),
+    bestTimes,
   }
 }
 
 /**
- * Record a win - the only mutator that updates win-related fields.
- *
- * @param {Object} stats - Current statistics object.
- * @param {string} presetId - Id of the preset that was played.
- * @param {number} timeMs - Time taken for the win.
- * @returns {Object} Updated statistics (new object, original untouched).
+ * The ONLY mutator of win-related statistics.
+ * Increments games/wins, advances the streak and keeps the best time per preset.
+ * @returns {object} a new stats object (the input is never mutated)
  */
 export function recordWin(stats, presetId, timeMs) {
-  const newStats = { ...stats }
-  newStats.totalGames = (newStats.totalGames ?? 0) + 1
-  newStats.totalWins = (newStats.totalWins ?? 0) + 1
-  // Update streaks
-  newStats.currentStreak = (newStats.currentStreak ?? 0) + 1
-  newStats.maxStreak = Math.max(newStats.maxStreak ?? 0, newStats.currentStreak)
-  // Update best time for the preset
-  const best = newStats.bestTimes?.[presetId]
-  const bestTimes = { ...(newStats.bestTimes ?? {}) }
-  if (best == null || timeMs < best) {
-    bestTimes[presetId] = timeMs
+  const base = normalizeStats(stats)
+  const bestTimes = { ...base.bestTimes }
+  const previous = bestTimes[presetId]
+  if (Number.isFinite(timeMs) && timeMs >= 0 && (previous == null || timeMs < previous)) {
+    bestTimes[presetId] = Math.floor(timeMs)
   }
-  newStats.bestTimes = bestTimes
-  return newStats
+  const currentStreak = base.currentStreak + 1
+  return {
+    ...base,
+    totalGames: base.totalGames + 1,
+    totalWins: base.totalWins + 1,
+    currentStreak,
+    maxStreak: Math.max(base.maxStreak, currentStreak),
+    bestTimes,
+  }
 }
 
 /**
- * Record a loss - updates the loss counter and resets the win streak.
+ * Record a loss: bumps the game/loss counters and resets the win streak.
+ * Never touches best times or win counters.
  */
-export function recordLoss(stats, presetId) {
-  const newStats = { ...stats }
-  newStats.totalGames = (newStats.totalGames ?? 0) + 1
-  newStats.totalLosses = (newStats.totalLosses ?? 0) + 1
-  newStats.currentStreak = 0
-  // `maxStreak` remains unchanged
-  return newStats
+export function recordLoss(stats) {
+  const base = normalizeStats(stats)
+  return {
+    ...base,
+    totalGames: base.totalGames + 1,
+    totalLosses: base.totalLosses + 1,
+    currentStreak: 0,
+  }
+}
+
+/** Convert a live game object into a JSON-safe payload. */
+export function serializeGame(game) {
+  if (!game || typeof game !== "object") return null
+  return {
+    width: game.width,
+    height: game.height,
+    mineCount: game.mineCount,
+    mines: Array.from(game.mines ?? []),
+    revealed: Array.from(game.revealed ?? []),
+    flagged: Array.from(game.flagged ?? []),
+    started: !!game.started,
+    exploded: !!game.exploded,
+    status: STATUSES.includes(game.status) ? game.status : "ready",
+  }
+}
+
+const isPosInt = (v) => Number.isInteger(v) && v > 0
+const isNonNegInt = (v) => Number.isInteger(v) && v >= 0
+
+function toBitArray(value, size) {
+  if (!Array.isArray(value) || value.length !== size) return null
+  const out = new Uint8Array(size)
+  for (let i = 0; i < size; i++) {
+    const v = value[i]
+    if (v !== 0 && v !== 1) return null
+    out[i] = v
+  }
+  return out
 }
 
 /**
- * Migrate payloads from older schema versions. The current version is 1, so the
- * function simply adds missing fields and bumps the version number.
- *
- * @param {Object} payload - The stored payload.
- * @param {number} fromVersion - Version the payload was saved with.
- * @returns {Object} Normalised payload ready for the current version.
+ * Rebuild a live game object from a serialized payload.
+ * Returns null when the payload is not a usable board; adjacency counts are
+ * always recomputed from the mines so a tampered file cannot desync the game.
+ */
+export function deserializeGame(data) {
+  if (!data || typeof data !== "object") return null
+  const { width, height, mineCount } = data
+  if (!isPosInt(width) || !isPosInt(height)) return null
+  const size = width * height
+  if (!isNonNegInt(mineCount) || mineCount >= size) return null
+  const mines = toBitArray(data.mines, size)
+  const revealed = toBitArray(data.revealed, size)
+  const flagged = toBitArray(data.flagged, size)
+  if (!mines || !revealed || !flagged) return null
+  const game = {
+    width,
+    height,
+    size,
+    mineCount,
+    mines,
+    counts: new Uint8Array(size),
+    revealed,
+    flagged,
+    started: !!data.started,
+    exploded: !!data.exploded,
+    status: STATUSES.includes(data.status) ? data.status : "ready",
+  }
+  computeCounts(game)
+  return game
+}
+
+/**
+ * Migrate a stored payload from an older schema version to the current one.
+ * Missing fields get defaults; unknown fields are preserved.
  */
 export function migrate(payload, fromVersion) {
-  // At the moment there is only version 1, so we just ensure required keys exist.
-  const migrated = { ...payload }
-  // Ensure fields exist with sensible defaults.
-  migrated.game = migrated.game ?? null
-  migrated.presetId = migrated.presetId ?? null
-  migrated.stats = migrated.stats ?? defaultStats()
-  migrated.elapsedMs = migrated.elapsedMs ?? 0
-  migrated.schemaVersion = SCHEMA_VERSION
-  return migrated
+  const data = payload && typeof payload === "object" ? { ...payload } : {}
+  const version = Number.isInteger(fromVersion) ? fromVersion : 0
+  if (version < 1) {
+    // v0 had no `schemaVersion` and stored stats inline; nothing to rename yet.
+    data.schemaVersion = SCHEMA_VERSION
+  }
+  data.schemaVersion = SCHEMA_VERSION
+  data.game = data.game ?? null
+  data.presetId = typeof data.presetId === "string" ? data.presetId : null
+  data.stats = normalizeStats(data.stats)
+  data.elapsedMs = Number.isFinite(data.elapsedMs) && data.elapsedMs >= 0 ? data.elapsedMs : 0
+  return data
 }
 
-/**
- * Load a persisted payload.
- * If storage is missing, corrupted, or contains a newer schema version, the
- * function returns a clean payload and sets `recovered: true`.
- */
+/** Read the payload back, never throwing. `recovered` is true when we started clean. */
 export function load(storage) {
-  if (!storage || typeof storage.getItem !== "function") {
-    return { game: null, presetId: null, stats: defaultStats(), elapsedMs: 0, recovered: true }
-  }
-  const raw = storage.getItem(STORAGE_KEY)
-  if (!raw) {
-    return { game: null, presetId: null, stats: defaultStats(), elapsedMs: 0, recovered: true }
-  }
+  const clean = () => ({
+    game: null,
+    presetId: null,
+    stats: defaultStats(),
+    elapsedMs: 0,
+    recovered: true,
+  })
+  if (!storage || typeof storage.getItem !== "function") return clean()
+
+  let raw
   try {
-    const payload = JSON.parse(raw)
-    if (typeof payload !== "object" || payload === null) throw new Error()
-    const version = payload.schemaVersion
-    if (typeof version !== "number") throw new Error()
-    if (version > SCHEMA_VERSION) {
-      // Future version - reject and start clean.
-      return { game: null, presetId: null, stats: defaultStats(), elapsedMs: 0, recovered: true }
-    }
-    let data = payload
-    if (version < SCHEMA_VERSION) {
-      data = migrate(payload, version)
-    }
-    return {
-      game: data.game ?? null,
-      presetId: data.presetId ?? null,
-      stats: data.stats ?? defaultStats(),
-      elapsedMs: data.elapsedMs ?? 0,
-      recovered: false
-    }
-  } catch (_) {
-    // Corrupt JSON or other parsing problem.
-    return { game: null, presetId: null, stats: defaultStats(), elapsedMs: 0, recovered: true }
+    raw = storage.getItem(STORAGE_KEY)
+  } catch {
+    return clean()
+  }
+  if (raw == null || raw === "") return clean()
+
+  let payload
+  try {
+    payload = JSON.parse(raw)
+  } catch {
+    return clean()
+  }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return clean()
+  // A missing version is a legacy (v0) payload: it is migrated, not rejected.
+  // A version present but not an integer is corruption and starts us clean.
+  const rawVersion = payload.schemaVersion
+  if (rawVersion != null && !Number.isInteger(rawVersion)) return clean()
+  const version = Number.isInteger(rawVersion) ? rawVersion : 0
+  if (version > SCHEMA_VERSION) return clean()
+
+  const data = version < SCHEMA_VERSION ? migrate(payload, version) : payload
+
+  const game = deserializeGame(data.game)
+  const hadGame = data.game != null
+  return {
+    game,
+    presetId: typeof data.presetId === "string" ? data.presetId : null,
+    stats: normalizeStats(data.stats),
+    elapsedMs: Number.isFinite(data.elapsedMs) && data.elapsedMs >= 0 ? data.elapsedMs : 0,
+    // A valid payload with no game is a normal cold start (recovered: false).
+    // It is only a recovery when a game was stored but cannot be rebuilt: the
+    // stats survive, the board is dropped.
+    recovered: hadGame && !game,
   }
 }
 
-/**
- * Persist the current payload.
- * The function never throws; storage errors are ignored because the UI can
- * continue operating in-memory.
- */
-export function save(storage, payload) {
+/** Persist a payload. Storage failures are swallowed: the game keeps running in memory. */
+export function save(storage, payload = {}) {
   if (!storage || typeof storage.setItem !== "function") return
-  const toStore = {
+  const record = {
     schemaVersion: SCHEMA_VERSION,
-    game: payload.game ?? null,
-    presetId: payload.presetId ?? null,
-    stats: payload.stats ?? defaultStats(),
-    elapsedMs: payload.elapsedMs ?? 0
+    game: serializeGame(payload.game),
+    presetId: typeof payload.presetId === "string" ? payload.presetId : null,
+    stats: normalizeStats(payload.stats),
+    elapsedMs:
+      Number.isFinite(payload.elapsedMs) && payload.elapsedMs >= 0
+        ? Math.floor(payload.elapsedMs)
+        : 0,
   }
   try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(toStore))
-  } catch (_) {
-    // Silently ignore storage write errors.
+    storage.setItem(STORAGE_KEY, JSON.stringify(record))
+  } catch {
+    /* quota or private mode: ignore */
   }
 }
