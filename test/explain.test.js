@@ -131,3 +131,35 @@ test('explanations on real boards always name the real numbers', () => {
     }
   }
 })
+
+test('singular and plural wording read correctly for one vs several mines', () => {
+  // counting/mine with exactly one hidden cell: says "unica celda oculta", never "1 minas".
+  const one = mkGame(2, 1, [1], [0])
+  const t1 = explain(findDeduction(one), one)
+  assert.ok(!/1 minas/.test(t1), t1)
+  assert.ok(!/\bsus 1\b/.test(t1), t1)
+
+  // counting/safe with a single accounted mine: singular.
+  const safe1 = mkGame(2, 2, [3], [1], [3])
+  const t2 = explain(findDeduction(safe1), safe1)
+  assert.ok(!/1 minas/.test(t2), t2)
+})
+
+test('no explanation ever reads "1 minas" or "1 celdas"', () => {
+  for (let seed = 0; seed < 60; seed++) {
+    const preset = { width: 9, height: 9, mineCount: 12 }
+    const rng = createRng(seed * 7 + 1)
+    let game = reveal(createGame(preset), 40, rng)
+    for (let guard = 0; guard < 80; guard++) {
+      const d = findDeduction(game)
+      if (!d) break
+      const text = explain(d, game)
+      assert.ok(!/1 minas/.test(text), `bad plural: "${text}"`)
+      assert.ok(!/1 celdas/.test(text), `bad plural: "${text}"`)
+      for (const c of d.cells) {
+        game = d.action === 'safe' ? reveal(game, c, () => 0) : toggleFlag(game, c)
+      }
+      if (game.status === 'won' || game.status === 'lost') break
+    }
+  }
+})

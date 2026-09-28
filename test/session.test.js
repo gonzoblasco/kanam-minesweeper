@@ -291,7 +291,9 @@ test('hint returns a verified deduction and its explanation', () => {
   assert.equal(result.deduction.technique, 'counting')
   assert.ok(result.deduction.cells.length > 0)
   assert.equal(typeof result.text, 'string')
-  assert.match(result.text, /es segura/)
+  // The wording agrees with the number of target cells ("es segura" /
+  // "son seguras"), so assert on the adjective, not the singular verb.
+  assert.match(result.text, /segura/)
 })
 
 test('hint does NOT mutate the board and does not touch the clock', () => {
