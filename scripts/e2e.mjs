@@ -98,11 +98,14 @@ check("grid rendered", count === 81, `${count} cells (expect 81 for easy 9x9)`);
 
 // Controles presentes.
 for (const [id, label] of [
-  ["#preset-select", "selector de dificultad"],
-  ["#btn-new", "Partida nueva"],
+  ["#level-easy", "card de nivel Facil"],
+  ["#level-medium", "card de nivel Medio"],
+  ["#level-hard", "card de nivel Dificil"],
+  ["#btn-new", "Nuevo campo"],
   ["#btn-restart", "Reiniciar"],
   ["#btn-pause", "Pausar"],
   ["#btn-hint", "Pista"],
+  ["#btn-flag-mode", "Modo bandera"],
   ["#mine-counter", "contador de minas"],
   ["#timer", "cronometro"],
 ]) {
@@ -110,12 +113,20 @@ for (const [id, label] of [
   check(`control visible: ${label}`, visible, id);
 }
 
+// El nivel activo se marca con aria-checked, no solo con color.
+const activeLevel = await page.locator('[role="radio"][aria-checked="true"]').count();
+check("exactly one level card is aria-checked", activeLevel === 1, `${activeLevel} checked`);
+
 // Dificultad: cambiar a Medio debe reconstruir la grilla en 16x16.
-await page.selectOption("#preset-select", "medium");
-await page.waitForTimeout(120);
+await page.locator("#level-medium").click();
+ await page.waitForTimeout(120);
 const mediumCells = await page.locator('[role="gridcell"]').count();
 check("difficulty switch rebuilds the grid", mediumCells === 256, `${mediumCells} cells (expect 256)`);
-await page.selectOption("#preset-select", "easy");
+check(
+  "the active level follows the switch",
+  (await page.locator("#level-medium").getAttribute("aria-checked")) === "true",
+);
+await page.locator("#level-easy").click();
 await page.waitForTimeout(120);
 check("back to easy", (await page.locator('[role="gridcell"]').count()) === 81);
 
@@ -159,7 +170,7 @@ check("resume toggles back", (await pauseBtn.innerText()).match(/pausar/i) !== n
 const live = await page.locator('[aria-live]').count();
 check("aria-live status region", live > 0, `${live} region(s)`);
 
-// Partida nueva limpia el tablero.
+// Nuevo campo limpia el tablero.
 await page.locator("#btn-new").click();
 await page.waitForTimeout(120);
 const freshRevealed = await page.locator('[role="gridcell"][data-state="revealed"]').count();
